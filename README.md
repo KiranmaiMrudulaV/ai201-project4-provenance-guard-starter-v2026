@@ -144,20 +144,19 @@ $ curl "http://127.0.0.1:5000/log?limit=2"
 
 ## How I Used AI
 
-<!-- TODO (yours to write): two specific moments. For each: what you asked, what came back, what you changed. -->
+I used Claude Code throughout this project. It wrote most of the Python (the `/submit` and `/appeal` routes, `stylometry.py`, `scoring.py::combine_signals`, and the scripts that formatted my test files). I wrote my own acceptance criteria and the three label texts, chose the thresholds, and decided what to do when my results came back bad.
 
-**Moment 1**
+**Moment 1: checking my criteria**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* I asked how to think about acceptance criteria and what a check actually takes in and gives back. Then I wrote five criteria myself and pasted them in, and asked whether someone else could test them.
+- *What came back:* It said the criteria were mostly checkable, but listed problems: I used "Appeal pending" while the starter uses `under_review`; my test sets had no named location; criterion 3 only tested controlled scores, so a label could be unreachable on real text; the appeal criterion had no case for a fake `content_id`.
+- *What I changed:* I kept all my numbers (0.4 gap, 0.2 and 0.9 cutoffs, 20,000 characters). I switched to `under_review`, named `tests/human.jsonl` and `tests/ai.jsonl`, and added the reachability line and the 404 case. I committed `criteria.md` before scoring anything.
 
-**Moment 2**
+**Moment 2: my first real results**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
-
+- *What I asked for:* After building the second signal, I asked it to run both signals over my 20 human and 10 AI pieces and print one table.
+- *What came back:* The signals barely separated them. Human median was 0.565 and AI median 0.536 on signal one, and casual human posts scored very AI-like. It also showed my 0.2 and 0.9 cutoffs were not reachable with real text, and gave me three options: keep the criteria and report the misses, amend the thresholds, or tune the signals.
+- *What I changed:* I kept my criteria as written and set `AI_THRESHOLD` to 0.9, so no human in my test set gets an AI label, even though that means no real input reaches the AI label. I also set the human cutoff at 0.35 so that label stays reachable, and I recorded both differences in the README. For the labels, the AI drafted wording first, and I replaced it with my own.
 
 <!-- ═══════════════════════ UNIT 8 — THE TEST ═══════════════════════ -->
 

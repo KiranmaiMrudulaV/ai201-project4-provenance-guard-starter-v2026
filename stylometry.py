@@ -34,6 +34,20 @@ import re
 import statistics
 
 
+# Starting guesses for how a "human-looking" text scores on each measure.
+# Not calibrated yet — Milestone 4 is where you check them against real inputs.
+TTR_WINDOW = 100     # words used for the type-token ratio
+SPREAD_HUMAN = 0.7   # sentence-length CV at or above this reads fully human
+TTR_HUMAN = 0.85     # type-token ratio at or above this reads fully human
+TTR_RANGE = 0.30     # ...and this far below it reads fully AI
+PUNCT_HUMAN = 0.20   # punctuation marks per word at or above this reads fully human
+W_SPREAD, W_TTR, W_PUNCT = 0.4, 0.3, 0.3
+
+
+def _clamp(x: float) -> float:
+    return max(0.0, min(1.0, x))
+
+
 def sentences(text: str) -> list[str]:
     """Split into sentences. Rough and good enough — given to you."""
     parts = re.split(r"(?<=[.!?])\s+", text.strip())
@@ -64,8 +78,14 @@ def sentence_length_spread(text: str) -> float:
     `stdev` raises on fewer than two values. Decide what that should return
     before the attack set decides for you.
     """
-    # TODO: replace this
-    return 0.0
+    lengths = [len(words(s)) for s in sentences(text)]
+    lengths = [n for n in lengths if n > 0]
+    # One sentence has no spread to measure. 0.0 here; style_signal treats
+    # "fewer than two sentences" as no evidence rather than as AI-like.
+    if len(lengths) < 2:
+        return 0.0
+    mean = statistics.mean(lengths)
+    return statistics.stdev(lengths) / mean  # coefficient of variation; higher = more human
 
 
 def type_token_ratio(text: str) -> float:
@@ -80,8 +100,12 @@ def type_token_ratio(text: str) -> float:
     directly comparable on it, and if your test inputs vary a lot in length,
     that alone can look like a signal.
     """
-    # TODO: replace this
-    return 0.0
+    # Only the first TTR_WINDOW words, so a long text isn't penalised for
+    # repeating common words and a short one isn't flattered.
+    ws = words(text)[:TTR_WINDOW]
+    if not ws:
+        return 0.0
+    return len(set(ws)) / len(ws)  # higher = more human
 
 
 def punctuation_density(text: str) -> float:
@@ -94,8 +118,12 @@ def punctuation_density(text: str) -> float:
         more interesting than full stops, because they vary more between
         writers.
     """
-    # TODO: replace this
-    return 0.0
+    n = len(words(text))
+    if n == 0:
+        return 0.0
+    # Counts the marks that vary most between writers, plus commas.
+    marks = re.findall(r"[,;:—–()!?\"]", text)
+    return len(marks) / n  # marks per word; higher = more human
 
 
 # ── Combining them ───────────────────────────────────────────────────────────
@@ -122,8 +150,16 @@ def style_signal(text: str) -> float:
     you trust it. Plain and ordinary, not formal: formal prose reads as *human*
     to signal one, and it is plain writing that gets accused.
     """
-    # TODO: replace this
-    return 0.5
+    parts = []  # (ai-ness 0-1, weight)
+
+    if len(sentences(text)) >= 2:
+        # CV of ~0.7+ is lumpy (human); near 0 is even (AI)
+        parts.append((_clamp(1 - sentence_length_spread(text) / SPREAD_HUMAN), W_SPREAD))
+    parts.append((_clamp((TTR_HUMAN - type_token_ratio(text)) / TTR_RANGE), W_TTR))
+    parts.append((_clamp(1 - punctuation_density(text) / PUNCT_HUMAN), W_PUNCT))
+
+    total = sum(w for _, w in parts)
+    return round(sum(s * w for s, w in parts) / total, 4)
 
 
 if __name__ == "__main__":

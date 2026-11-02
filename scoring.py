@@ -52,11 +52,17 @@ def combine_signals(model_score: float, style_score: float) -> float:
     The weights in config.py are placeholders. Change them, or ignore them and
     write a different rule.
     """
-    # TODO: replace this
-    return (
+    # Rule: weighted average, then a disagreement check. If the two signals are
+    # more than DISAGREEMENT_GAP apart, pull the result part of the way back to
+    # 0.5 — two methods splitting is uncertainty, so an "AI" verdict needs both
+    # signals leaning the same way.
+    score = (
         config.WEIGHT_MODEL_SIGNAL * model_score
         + config.WEIGHT_STYLE_SIGNAL * style_score
     )
+    if abs(model_score - style_score) > config.DISAGREEMENT_GAP:
+        score = 0.5 + (score - 0.5) * config.DISAGREEMENT_SHRINK
+    return round(score, 4)
 
 
 def score_to_label(score: float) -> tuple[str, str]:

@@ -211,14 +211,23 @@ def submit():
     if not isinstance(creator_id, str) or not creator_id.strip():
         return jsonify({"error": "bad_request", "message": "Send JSON with a non-empty \"creator_id\"."}), 400
 
+    if len(text) > config.MAX_TEXT_CHARS:
+        return jsonify({
+            "error": "too_large",
+            "message": f"Text is longer than {config.MAX_TEXT_CHARS} characters.",
+        }), 413
+
     # Signal one — the model loads once, on the first call, and stays in memory
     import detector
-    model_score = detector.model_signal(text)
+    import scoring
+    import stylometry
 
-    # Placeholders until Milestones 4 and 5
-    guess = "unsure"
-    confidence = 0.5
-    label = "not built yet"
+    model_score = detector.model_signal(text)
+    style_score = stylometry.style_signal(text)
+    combined = scoring.combine_signals(model_score, style_score)
+    guess, label = scoring.score_to_label(combined)
+    # How sure the system is of its guess: 0.5 means a coin flip, 1.0 means certain.
+    confidence = round(max(combined, 1 - combined), 4)
 
     content_id = str(uuid.uuid4())
     audit.log_decision(
@@ -226,8 +235,8 @@ def submit():
         creator_id=creator_id,
         guess=guess,
         model_score=model_score,
-        style_score=None,
-        combined_score=None,
+        style_score=style_score,
+        combined_score=combined,
         label=label,
         status="decided",
     )
@@ -236,9 +245,10 @@ def submit():
         "content_id": content_id,
         "guess": guess,
         "confidence": confidence,
+        "score": combined,
         "label": label,
         "model_score": model_score,
-        "style_score": None,
+        "style_score": style_score,
     }), 200
 
 
@@ -262,14 +272,37 @@ def appeal():
     to the person on the other end. It's the only thing standing between a
     wrong accusation and nothing at all.
     """
-    payload = request.get_json(silent=True) or {}
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"error": "bad_request", "message": "Send a JSON object."}), 400
 
-    # TODO: delete this and build the route.
+    content_id = payload.get("content_id")
+    reasoning = payload.get("reasoning")
+    if not isinstance(content_id, str) or not content_id.strip():
+        return jsonify({"error": "bad_request", "message": "Send a non-empty \"content_id\"."}), 400
+    if not isinstance(reasoning, str) or not reasoning.strip():
+        return jsonify({"error": "bad_request", "message": "Send a non-empty \"reasoning\"."}), 400
+
+    # The original decision is the entry that has no "event" field
+    history = audit.entries_for(content_id)
+    decisions = [e for e in history if "event" not in e]
+    if not decisions:
+        return jsonify({"error": "not_found", "message": "No submission with that content_id."}), 404
+
+    original = decisions[0]
+    previous_status = history[-1].get("status")
+    audit.log_appeal(
+        content_id=content_id,
+        creator_id=original.get("creator_id"),
+        reasoning=reasoning,
+        previous_status=previous_status,
+    )
+
     return jsonify({
-        "error": "not_implemented",
-        "message": "POST /appeal isn't built yet — see the TODO in app.py.",
-        "you_sent": payload,
-    }), 501
+        "content_id": content_id,
+        "status": "under_review",
+        "message": "Thanks. Your appeal has been recorded and this piece is now under review.",
+    }), 200
 
 
 # ── Already works ─────────────────────────────────────────────────────────────

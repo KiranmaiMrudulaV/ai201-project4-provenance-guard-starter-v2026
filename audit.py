@@ -73,7 +73,7 @@ def log_decision(
     return _append(entry)
 
 
-def log_appeal(content_id: str, creator_id: str, reasoning: str) -> dict:
+def log_appeal(content_id: str, creator_id: str, reasoning: str, **extra) -> dict:
     """
     Record an appeal beside the original decision.
 
@@ -82,14 +82,16 @@ def log_appeal(content_id: str, creator_id: str, reasoning: str) -> dict:
     the whole point of an audit log. Someone reading it later can see what was
     decided, that it was challenged, and in what order.
     """
-    return _append({
+    entry = {
         "timestamp": _now(),
         "content_id": content_id,
         "creator_id": creator_id,
         "event": "appeal",
         "status": "under_review",
         "reasoning": reasoning,
-    })
+    }
+    entry.update(extra)
+    return _append(entry)
 
 
 def log_rejection(creator_id: str, reason: str, **extra) -> dict:

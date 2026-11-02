@@ -57,6 +57,14 @@ DETECTOR_MAX_TOKENS = 400
 WEIGHT_MODEL_SIGNAL = 0.5
 WEIGHT_STYLE_SIGNAL = 0.5
 
+# When the two signals differ by more than this, the combined score moves
+# back toward 0.5 by this factor (0.5 = halfway). See scoring.combine_signals.
+DISAGREEMENT_GAP = 0.35
+DISAGREEMENT_SHRINK = 0.5
+
+# Longest text /submit accepts, in characters (criteria.md, criterion 5).
+MAX_TEXT_CHARS = 20_000
+
 
 # ─── Thresholds (Milestone 5) ────────────────────────────────────────────────
 # Where one label becomes another. Scores run 0.0 (confidently human) to 1.0

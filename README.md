@@ -70,9 +70,9 @@ If a writer disagrees, `POST /appeal` takes the `content_id` and their reasoning
 
 ### The combining rule
 
-**The rule:** a weighted average of the two scores. If the two signals differ by more than 0.35, the result is pulled halfway back toward 0.5. Two methods disagreeing is itself uncertainty, so an "AI" verdict needs both signals leaning the same way. I chose this to protect writers: a wrongly flagged human costs more than a missed AI piece.
+**The rule:** a weighted average of the two scores. If the two signals differ by more than 0.35, the result is pulled halfway back toward 0.5. Two methods disagreeing is itself uncertainty, so an "AI" verdict needs both signals leaning the same way. The stretch phrase signal (see below) is then added on top as a one-way nudge of at most +0.25. I chose this to protect writers: a wrongly flagged human costs more than a missed AI piece.
 
-**The numbers:** model weight 0.5, style weight 0.5, disagreement gap 0.35, shrink factor 0.5 (all in `config.py`). Label cutoffs: human at or below 0.35, AI at or above 0.90.
+**The numbers:** model weight 0.5, style weight 0.5, disagreement gap 0.35, shrink factor 0.5, phrase bonus 0.25 (all in `config.py`). Label cutoffs: human at or below 0.35, AI at or above 0.90.
 
 **Where it lives:** `scoring.py::combine_signals`
 
@@ -82,7 +82,7 @@ If a writer disagrees, `POST /appeal` takes the `content_id` and their reasoning
 
 I wrote my criteria first (`criteria.md`, committed before any scores), then scored 20 human pieces (`tests/human.jsonl`) and 10 AI pieces (`tests/ai.jsonl`).
 
-- Signal one: human median 0.565, AI median 0.536. Signal two: human 0.423, AI 0.457. Combined scores ran from about 0.28 to 0.70.
+- Signal one: human median 0.565, AI median 0.536. Signal two: human 0.423, AI 0.457. Combined scores (two signals) ran from about 0.28 to 0.70; the third signal's effect is under Stretch 1.
 - **Criterion 1 (no human labelled AI): met, but trivially.** With the cutoff at 0.9, no piece of either kind reaches the AI label.
 - **Criterion 2 (median gap of 0.4): missed by a wide margin.** The combined medians were about 0.48 for human and 0.48 for AI. The two signals together do not separate these samples.
 - **Criterion 3 (label coverage): partly missed.** The mapping works at the boundaries, but no real input reaches the AI label. I also set the human cutoff at 0.35, not the 0.2 written in the criterion, because the lowest real score was about 0.28 and 0.2 would make the human label unreachable too.
@@ -165,6 +165,62 @@ I am adding all three stretch features. This section was committed before any of
 1. **A third signal.** A phrase signal that measures how many stock chatbot phrases a text uses ("plays a pivotal role", "ultimately", "in today's fast-paced world"). It is meant to measure something different from predictability (signal one) and shape (signal two). I will write down how the three signals are weighted and why.
 2. **`GET /content/<id>`.** Returns one item's current status, label and scores.
 3. **A verified-human path.** A writer earns a credential through an extra step (answering a challenge prompt in their own words), and the credential shows on their work in the response and the log.
+
+### Stretch 1 — the third signal (`phrases.py::phrase_signal`)
+
+**What it measures:** how many stock chatbot phrases a text contains ("plays a pivotal role", "ultimately", "delve", "tapestry" and about 30 others), per 100 words. A density of 3 hits per 100 words scores 1.0. The list was written from general knowledge of chatbot habits, not tuned on my test pieces.
+
+**What it can't see:** anything not on the list. A model told to avoid those phrases walks past it, and a formal human writer can trip it. Poems and casual writing score about zero whoever wrote them, so it can only ever argue for "AI".
+
+**How the three are weighted, and why:** signals one and two are averaged 0.5/0.5 as before (with the disagreement rule). The phrase signal is **not** averaged in. It scored 0 on 26 of my 30 test pieces, and averaging in a zero would drag every text toward "human" whenever the list didn't match. Instead it is added on top as a one-way nudge: `score += 0.25 × phrase_score`, capped at 1.0. Absence says nothing; a hit is evidence. The weight of 0.25 is my judgment, not a fitted value.
+
+**What it changed:** on my test sets the phrase signal fired on 4 of 10 AI pieces and 2 of 20 human ones. Both human hits were false alarms (h13 uses "Furthermore" in a rant, and h22, the Frost poem, says "harness bells"). With it, the combined medians moved from 0.477 (AI) and 0.482 (human) to 0.569 (AI) and 0.517 (human). That is a gap of about 0.05, far short of criterion 2's 0.4, and the highest AI piece is still only 0.77, below the 0.9 cutoff. It helps a little and does not fix the problem.
+
+### Stretch 2 — `GET /content/<id>`
+
+Returns one item's current status, label, scores, and how many appeals it has. An unknown id returns HTTP 404.
+
+```bash
+$ curl http://127.0.0.1:5000/content/6d8e51ad-7b31-4078-9302-cf83e7b2d57e
+```
+
+```json
+{"appeals":0,"combined_score":0.8584,"content_id":"6d8e51ad-7b31-4078-9302-cf83e7b2d57e","creator_id":"demo_verified","guess":"unsure","label":"We could not determine whether AI was used. No action is required, and the writer can request a review.","model_score":0.6943,"phrase_score":1.0,"status":"decided","style_score":0.5225,"verified_human":true}
+```
+
+### Stretch 3 — the verified-human path
+
+**The step:** a writer asks for a challenge (`POST /verify/challenge`) and gets a prompt with a random word in it. They answer it in their own words (`POST /verify`), at least 30 words and including the random word. A passing answer records a `verification` event in the audit log. From then on every submission by that `creator_id` carries `"verified_human": true` in the response, in the log entry, and in `GET /content/<id>`. A short answer returns 422; an unknown or mismatched challenge returns 404.
+
+**What it is not:** a light check that someone can write a live answer, not proof of authorship. It does not change the score or the label; it only shows on the work.
+
+```bash
+$ curl -X POST http://127.0.0.1:5000/verify/challenge -H "Content-Type: application/json" -d '{"creator_id": "demo_verified"}'
+```
+
+```json
+{"challenge_id":"1288935c-ecb3-44e5-8f83-8ed4ee10cbe9","prompt":"In your own words, in at least 30 words, write about the last meal you cooked or ate that you remember well. Include the word \"thistle\"."}
+```
+
+```bash
+$ curl -X POST http://127.0.0.1:5000/verify -H "Content-Type: application/json" -d '{"creator_id": "demo_verified", "challenge_id": "1288935c-ecb3-44e5-8f83-8ed4ee10cbe9", "response": "Last night I made soup in the old thistle my grandmother left me, and honestly it came out too salty, so I added potatoes and we ate it anyway while arguing about whose turn it was to do the dishes."}'
+```
+
+```json
+{"creator_id":"demo_verified","message":"Verified. This credential now shows on your submissions.","verified":true}
+```
+
+The credential then shows on that writer's work (response from a later `POST /submit`, and the matching log entry):
+
+```json
+{"confidence":0.8584,"content_id":"6d8e51ad-7b31-4078-9302-cf83e7b2d57e","guess":"unsure","label":"We could not determine whether AI was used. No action is required, and the writer can request a review.","model_score":0.6943,"phrase_score":1.0,"score":0.8584,"style_score":0.5225,"verified_human":true}
+```
+
+```json
+{"count":1,"entries":[{"combined_score":0.8584,"content_id":"6d8e51ad-7b31-4078-9302-cf83e7b2d57e","creator_id":"demo_verified","guess":"unsure","label":"We could not determine whether AI was used. No action is required, and the writer can request a review.","model_score":0.6943,"phrase_score":1.0,"status":"decided","style_score":0.5225,"timestamp":"2026-11-02T00:58:48+00:00","verified_human":true}]}
+```
+
+Note: the main Sample Run above was captured before the third signal existed, so its response has no `phrase_score` or `verified_human` fields.
 
 
 ---

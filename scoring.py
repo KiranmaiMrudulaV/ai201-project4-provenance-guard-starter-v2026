@@ -32,7 +32,7 @@ LABEL_UNSURE = (
 )
 
 
-def combine_signals(model_score: float, style_score: float) -> float:
+def combine_signals(model_score: float, style_score: float, phrase_score: float = 0.0) -> float:
     """
     Combine two 0–1 signals into one 0–1 score. ← TODO (Milestone 4)
 
@@ -75,7 +75,11 @@ def combine_signals(model_score: float, style_score: float) -> float:
     )
     if abs(model_score - style_score) > config.DISAGREEMENT_GAP:
         score = 0.5 + (score - 0.5) * config.DISAGREEMENT_SHRINK
-    return round(score, 4)
+    # Third signal: phrase_score is one-way. A stock-phrase hit is evidence for
+    # AI, but no hit says nothing, so it is added on top (never averaged in,
+    # which would drag every text toward "human").
+    score += config.PHRASE_BONUS * phrase_score
+    return round(min(score, 1.0), 4)
 
 
 def score_to_label(score: float) -> tuple[str, str]:

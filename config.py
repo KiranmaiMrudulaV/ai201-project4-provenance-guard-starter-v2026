@@ -62,6 +62,10 @@ WEIGHT_STYLE_SIGNAL = 0.5
 DISAGREEMENT_GAP = 0.35
 DISAGREEMENT_SHRINK = 0.5
 
+# Third signal (phrases.py): added on top of the combined score, at most this
+# much. See scoring.combine_signals for why it is not averaged in.
+PHRASE_BONUS = 0.25
+
 # Longest text /submit accepts, in characters (criteria.md, criterion 5).
 MAX_TEXT_CHARS = 20_000
 

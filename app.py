@@ -219,15 +219,18 @@ def submit():
 
     # Signal one — the model loads once, on the first call, and stays in memory
     import detector
+    import phrases
     import scoring
     import stylometry
 
     model_score = detector.model_signal(text)
     style_score = stylometry.style_signal(text)
-    combined = scoring.combine_signals(model_score, style_score)
+    phrase_score = phrases.phrase_signal(text)
+    combined = scoring.combine_signals(model_score, style_score, phrase_score)
     guess, label = scoring.score_to_label(combined)
     # How sure the system is of its guess: 0.5 means a coin flip, 1.0 means certain.
     confidence = round(max(combined, 1 - combined), 4)
+    verified_human = audit.is_verified(creator_id)
 
     content_id = str(uuid.uuid4())
     audit.log_decision(
@@ -239,6 +242,8 @@ def submit():
         combined_score=combined,
         label=label,
         status="decided",
+        phrase_score=phrase_score,
+        verified_human=verified_human,
     )
 
     return jsonify({
@@ -249,6 +254,8 @@ def submit():
         "label": label,
         "model_score": model_score,
         "style_score": style_score,
+        "phrase_score": phrase_score,
+        "verified_human": verified_human,
     }), 200
 
 
@@ -303,6 +310,118 @@ def appeal():
         "status": "under_review",
         "message": "Thanks. Your appeal has been recorded and this piece is now under review.",
     }), 200
+
+
+# ── Stretch features ──────────────────────────────────────────────────────────
+
+@app.get("/content/<content_id>")
+def get_content(content_id):
+    """One item's current status, label, and scores."""
+    history = audit.entries_for(content_id)
+    decisions = [e for e in history if "event" not in e]
+    if not decisions:
+        return jsonify({"error": "not_found", "message": "No submission with that content_id."}), 404
+
+    d = decisions[0]
+    return jsonify({
+        "content_id": content_id,
+        "creator_id": d.get("creator_id"),
+        "status": history[-1].get("status"),
+        "guess": d.get("guess"),
+        "label": d.get("label"),
+        "model_score": d.get("model_score"),
+        "style_score": d.get("style_score"),
+        "phrase_score": d.get("phrase_score"),
+        "combined_score": d.get("combined_score"),
+        "verified_human": audit.is_verified(d.get("creator_id")),
+        "appeals": sum(1 for e in history if e.get("event") == "appeal"),
+    })
+
+
+# Open challenges, kept in memory: challenge_id -> {creator_id, word}.
+# A restart forgets them, which only means asking for a new one.
+_challenges: dict[str, dict] = {}
+
+_CHALLENGE_TOPICS = [
+    "the last meal you cooked or ate that you remember well",
+    "a place you go when you want to be alone",
+    "something small that annoyed you this week",
+    "a person who taught you something useful",
+]
+_CHALLENGE_WORDS = ["kettle", "lantern", "ferry", "ladder", "marble", "thistle", "canvas", "harbor"]
+_CHALLENGE_MIN_WORDS = 30
+
+
+@app.post("/verify/challenge")
+def verify_challenge():
+    """
+    Step one of the verified-human path: ask for a challenge.
+
+    Expects {"creator_id": "..."}. Returns a prompt to answer in the writer's
+    own words, containing a random word so the answer can't be prepared ahead.
+    """
+    import random
+
+    payload = request.get_json(silent=True)
+    creator_id = payload.get("creator_id") if isinstance(payload, dict) else None
+    if not isinstance(creator_id, str) or not creator_id.strip():
+        return jsonify({"error": "bad_request", "message": "Send a non-empty \"creator_id\"."}), 400
+
+    challenge_id = str(uuid.uuid4())
+    word = random.choice(_CHALLENGE_WORDS)
+    _challenges[challenge_id] = {"creator_id": creator_id, "word": word}
+    return jsonify({
+        "challenge_id": challenge_id,
+        "prompt": (
+            f"In your own words, in at least {_CHALLENGE_MIN_WORDS} words, write about "
+            f"{random.choice(_CHALLENGE_TOPICS)}. Include the word \"{word}\"."
+        ),
+    })
+
+
+@app.post("/verify")
+def verify():
+    """
+    Step two: answer the challenge. Passing earns the verified-human credential.
+
+    Expects {"creator_id", "challenge_id", "response"}. This is a light check,
+    not proof of authorship: it needs a live answer of enough length that uses
+    the random word. The credential is shown on the writer's later submissions.
+    """
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"error": "bad_request", "message": "Send a JSON object."}), 400
+
+    creator_id = payload.get("creator_id")
+    challenge_id = payload.get("challenge_id")
+    response = payload.get("response")
+    if not all(isinstance(v, str) and v.strip() for v in (creator_id, challenge_id, response)):
+        return jsonify({
+            "error": "bad_request",
+            "message": "Send non-empty \"creator_id\", \"challenge_id\" and \"response\".",
+        }), 400
+
+    challenge = _challenges.get(challenge_id)
+    if challenge is None or challenge["creator_id"] != creator_id:
+        return jsonify({"error": "not_found", "message": "No open challenge for that writer and id."}), 404
+
+    words = response.split()
+    if len(words) < _CHALLENGE_MIN_WORDS or challenge["word"] not in response.lower():
+        return jsonify({
+            "verified": False,
+            "message": (
+                f"Not verified. Write at least {_CHALLENGE_MIN_WORDS} words and "
+                f"include the word \"{challenge['word']}\"."
+            ),
+        }), 422
+
+    del _challenges[challenge_id]
+    audit.log_verification(creator_id, challenge_id)
+    return jsonify({
+        "verified": True,
+        "creator_id": creator_id,
+        "message": "Verified. This credential now shows on your submissions.",
+    })
 
 
 # ── Already works ─────────────────────────────────────────────────────────────

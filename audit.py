@@ -94,6 +94,24 @@ def log_appeal(content_id: str, creator_id: str, reasoning: str, **extra) -> dic
     return _append(entry)
 
 
+def log_verification(creator_id: str, challenge_id: str) -> dict:
+    """Record that a writer passed the verified-human challenge (stretch)."""
+    return _append({
+        "timestamp": _now(),
+        "creator_id": creator_id,
+        "event": "verification",
+        "challenge_id": challenge_id,
+    })
+
+
+def is_verified(creator_id: str) -> bool:
+    """Has this writer ever passed the verified-human challenge?"""
+    return any(
+        e.get("event") == "verification" and e.get("creator_id") == creator_id
+        for e in read_entries()
+    )
+
+
 def log_rejection(creator_id: str, reason: str, **extra) -> dict:
     """
     Record a request that never became a decision — a rate-limit rejection or

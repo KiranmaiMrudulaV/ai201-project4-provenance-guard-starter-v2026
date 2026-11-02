@@ -126,6 +126,39 @@ $ curl -X POST http://127.0.0.1:5000/submit \
 $ curl -X POST http://127.0.0.1:5000/appeal \
   -H "Content-Type: application/json" \
   -d '{"content_id": "b38724a4-6e65-4761-8e1d-e587d449621e", "reasoning": "I wrote this myself as an introduction post."}'
+```json
+{"content_id":"b38724a4-6e65-4761-8e1d-e587d449621e","message":"Thanks. Your appeal has been recorded and this piece is now under review.","status":"under_review"}
+```
+
+**What the log shows afterwards**
+
+```bash
+$ curl "http://127.0.0.1:5000/log?limit=2"
+```
+
+```json
+{"count":2,"entries":[{"combined_score":0.715,"content_id":"b38724a4-6e65-4761-8e1d-e587d449621e","creator_id":"demo_writer","guess":"unsure","label":"We could not determine whether AI was used. No action is required, and the writer can request a review.","model_score":0.7996,"status":"decided","style_score":0.6304,"timestamp":"2026-11-02T00:47:24+00:00"},{"content_id":"b38724a4-6e65-4761-8e1d-e587d449621e","creator_id":"demo_writer","event":"appeal","previous_status":"decided","reasoning":"I wrote this myself as an introduction post.","status":"under_review","timestamp":"2026-11-02T00:47:24+00:00"}]}
+```
+
+---
+
+## How I Used AI
+
+<!-- TODO (yours to write): two specific moments. For each: what you asked, what came back, what you changed. -->
+
+**Moment 1**
+
+- *What I asked for:*
+- *What came back:*
+- *What I changed:*
+
+**Moment 2**
+
+- *What I asked for:*
+- *What came back:*
+- *What I changed:*
+
+
 <!-- ═══════════════════════ UNIT 8 — THE TEST ═══════════════════════ -->
 
 ---

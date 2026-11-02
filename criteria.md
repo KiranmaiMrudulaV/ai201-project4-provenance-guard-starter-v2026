@@ -8,7 +8,7 @@ On a fixed test set of 20 human-written pieces with known authorship (`tests/hum
 
 ## 2. Score spread
 
-Using an AI-likelihood score from 0 to 1, the median score for 10 clearly AI-generated samples (`tests/ai.jsonl`) must be at least 0.4 higher than the median for 10 known human-written samples (from `tests/human.jsonl`). Both groups must include poems and prose of comparable lengths.
+Using an AI-likelihood score from 0 to 1, the median score for 10 clearly AI-generated samples (`tests/ai.jsonl`) must be at least 0.4 higher than the median for 10 known human-written samples (from `tests/human.jsonl`). Both groups must include poems and prose, and every piece must be within a 2x word count of the others (for example, 60 to 120 words).
 
 **Why:** This checks whether the detector meaningfully separates the two groups instead of giving everything similar scores. The score represents the detector's assessment, not a proven probability of authorship.
 

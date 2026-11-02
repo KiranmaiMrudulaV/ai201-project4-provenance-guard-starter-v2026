@@ -19,18 +19,16 @@ you claim, so that line should read `scoring.py::combine_signals`.
 import config
 
 LABEL_AI = (
-    "AI: Our automated checks found strong signs that this piece may have been "
-    "written with an AI tool. This is an estimate, not proof. If you wrote it "
-    "yourself, you can appeal and a person will take a look."
+    "This text may be AI-generated, but this can be wrong. "
+    "The writer can request a review."
 )
 LABEL_HUMAN = (
-    "Human: Our automated checks suggest this piece was probably written by a "
-    "person. No action is needed."
+    "This text may be human-written, but we cannot verify the authorship. "
+    "No further action is required."
 )
 LABEL_UNSURE = (
-    "Authorship unclear: Our automated checks could not tell whether this piece "
-    "was written by a person or with an AI tool. That is common and says nothing "
-    "bad about you. If you would like a person to look at it, you can appeal."
+    "We could not determine whether AI was used. No action is required, "
+    "and the writer can request a review."
 )
 
 

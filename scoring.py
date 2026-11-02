@@ -18,6 +18,21 @@ you claim, so that line should read `scoring.py::combine_signals`.
 
 import config
 
+LABEL_AI = (
+    "AI: Our automated checks found strong signs that this piece may have been "
+    "written with an AI tool. This is an estimate, not proof. If you wrote it "
+    "yourself, you can appeal and a person will take a look."
+)
+LABEL_HUMAN = (
+    "Human: Our automated checks suggest this piece was probably written by a "
+    "person. No action is needed."
+)
+LABEL_UNSURE = (
+    "Authorship unclear: Our automated checks could not tell whether this piece "
+    "was written by a person or with an AI tool. That is common and says nothing "
+    "bad about you. If you would like a person to look at it, you can appeal."
+)
+
 
 def combine_signals(model_score: float, style_score: float) -> float:
     """
@@ -91,12 +106,11 @@ def score_to_label(score: float) -> tuple[str, str]:
     think if they got it on their own work. That question is the whole
     milestone.
     """
-    # TODO: replace this — thresholds are in config.py
     if score >= config.AI_THRESHOLD:
-        return "ai", "PLACEHOLDER — write the high-confidence AI label."
+        return "ai", LABEL_AI
     if score <= config.HUMAN_THRESHOLD:
-        return "human", "PLACEHOLDER — write the high-confidence human label."
-    return "unsure", "PLACEHOLDER — write the unsure label."
+        return "human", LABEL_HUMAN
+    return "unsure", LABEL_UNSURE
 
 
 def label_ranges() -> list[tuple[str, str]]:

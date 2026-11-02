@@ -158,6 +158,17 @@ I used Claude Code throughout this project. It wrote most of the Python (the `/s
 - *What came back:* The signals barely separated them. Human median was 0.565 and AI median 0.536 on signal one, and casual human posts scored very AI-like. It also showed my 0.2 and 0.9 cutoffs were not reachable with real text, and gave me three options: keep the criteria and report the misses, amend the thresholds, or tune the signals.
 - *What I changed:* I kept my criteria as written and set `AI_THRESHOLD` to 0.9, so no human in my test set gets an AI label, even though that means no real input reaches the AI label. I also set the human cutoff at 0.35 so that label stays reachable, and I recorded both differences in the README. For the labels, the AI drafted wording first, and I replaced it with my own.
 
+## Stretch Features (declared before building)
+
+I am adding all three stretch features. This section was committed before any of them were built; what each one did is written up in the subsections below once it exists.
+
+1. **A third signal.** A phrase signal that measures how many stock chatbot phrases a text uses ("plays a pivotal role", "ultimately", "in today's fast-paced world"). It is meant to measure something different from predictability (signal one) and shape (signal two). I will write down how the three signals are weighted and why.
+2. **`GET /content/<id>`.** Returns one item's current status, label and scores.
+3. **A verified-human path.** A writer earns a credential through an extra step (answering a challenge prompt in their own words), and the credential shows on their work in the response and the log.
+
+
+---
+
 <!-- ═══════════════════════ UNIT 8 — THE TEST ═══════════════════════ -->
 
 ---

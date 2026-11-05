@@ -231,25 +231,21 @@ Note: the main Sample Run above was captured before the third signal existed, so
 
 ## Rate Limiting
 
-**My limits:** ___ per minute, ___ per day
+**My limits:** 3 per minute, 30 per day, on `POST /submit` (`config.py`, enforced by the `@limiter.limit(...)` line in `app.py`).
 
-**Why those numbers and not others:**
-<!-- Think about two people: a real writer submitting their own work a few
-     times an hour, and a script sending a thousand variations to map your
-     thresholds. Your numbers have to be liveable for the first and hostile to
-     the second. -->
+**Why those numbers and not others:** a real writer submits their own work a few times an hour. Even when they revise and resubmit, each check takes a second or two and they stop to read the result, so 3 in a minute is a normal burst and 30 in a day is generous. A script mapping my thresholds needs hundreds of probes, so the daily cap of 30 is what hurts it most; the per-minute cap slows its bursts. I tried 2 per minute and 20 per day first and a 15-request flood was blocked almost immediately, which was tighter than I wanted because it would also block a writer sending two quick revisions. I settled on 3 and 30 as the point where a normal burst still gets through and a flood does not. These are my judgment, not measured values.
 
-**What a caller counts as:** <!-- per address, or per creator_id? They fail
-differently — one script can look like a thousand callers, and one household
-can look like one. -->
+**What a caller counts as:** the `creator_id` in the request, falling back to the caller's address when there is none (`app.py::rate_limit_key`). Per creator means one script using many addresses still hits the same limit, but a script that rotates `creator_id` values gets a fresh allowance each time, and one household sharing an address is not penalised.
 
 **The run of status codes when I pushed past it:**
 
-<!-- python run_attacks.py --flood 15 -->
-
+```
+$ python run_attacks.py --flood 15
+200 200 200 429 429 429 429 429 429 429 429 429 429 429 429
+12 of 15 were rate limited.
 ```
 
-```
+Rejections are written to the audit log as `rejected` entries, and so are my own 400 and 413 refusals.
 
 ---
 

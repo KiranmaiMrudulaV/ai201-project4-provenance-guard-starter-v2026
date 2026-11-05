@@ -158,6 +158,12 @@ I used Claude Code throughout this project. It wrote most of the Python (the `/s
 - *What came back:* The signals barely separated them. Human median was 0.565 and AI median 0.536 on signal one, and casual human posts scored very AI-like. It also showed my 0.2 and 0.9 cutoffs were not reachable with real text, and gave me three options: keep the criteria and report the misses, amend the thresholds, or tune the signals.
 - *What I changed:* I kept my criteria as written and set `AI_THRESHOLD` to 0.9, so no human in my test set gets an AI label, even though that means no real input reaches the AI label. I also set the human cutoff at 0.35 so that label stays reachable, and I recorded both differences in the README. For the labels, the AI drafted wording first, and I replaced it with my own.
 
+**Unit 8**
+
+*Moment 3: marking the attacks.* Claude Code ran the staff attack set and the five-criteria trials for me and wrote the helper scripts (`scenarios.py`, `extra_checks.py`). I asked it to propose a rule for when an attack counts as broken, and I agreed to it (the attacker got their goal) instead of marking by feel. It also caught that my first rate-limit "test" with 5 per minute had run while the limiter was still switched off, so I did not use that run as evidence. I chose the verdicts and picked the emoji and non-Latin posts as my worst outcome myself.
+
+*Moment 4: choosing the improvement.* I asked what my diagnosis pointed at and it gave three options (validate input, move a threshold, reweight signals). I took its suggestion to validate input because one cause explained three broken attacks. It wrote the change and the before and after runs, and when the after run showed criterion 5 had started failing, I kept that miss in the README instead of changing the test.
+
 ## Stretch Features (declared before building)
 
 I am adding all three stretch features. This section was committed before any of them were built; what each one did is written up in the subsections below once it exists.
@@ -944,37 +950,118 @@ Trial 1 detail:
 
 ## The Improvement
 
-**What I changed:**
+**What I changed:** one thing. `app.py::submit` now refuses text with fewer than 5 Latin-alphabet words, before either signal sees it (`config.MIN_WORDS = 5`). It returns HTTP 400 with the error `unscorable_text` and an explanation, and writes a `rejected` entry to the audit log (reason `too_few_words`). Commit `68b4a94`. Nothing else was touched: not the signals, weights, thresholds or labels. I counted the words with the same `stylometry.words()` function signal two uses, and I picked 5 because the shortest genuine human message in the attack set (FP08) has 8 words and the next shortest (EV08) has 10, while every unscorable attack has 3 words or fewer.
 
-**Which diagnosis pointed at it:**
+**Which diagnosis pointed at it:** three of my four broken attacks came from one cause. MF02 (a single character) crashed in signal one because the route passed it through unchecked. MF06 (emoji) and MF07 (right-to-left script) were labelled AI because signal two finds zero words in them and scores that as maximally AI-like. All three are text the signals cannot read, so the fix is to stop it before the signals.
 
 ### Attack Run — After
 
-<!-- Same format. `run_attacks.py --label after` -->
+The same 56 attacks, run with `python run_attacks.py --set attack_set --label after` (raw output: `results/attack_run_2026-11-04_2034_after.md`), same marking rule as before. RQ08 to RQ11 were again re-run alone to get past my own address limit; all four returned 400.
 
+| ID | Family | What it went for | Status | Guess | Score | Mark |
+|---|---|---|---|---|---|---|
+| EV01 | evasion | signal two: typos raise word variety | 200 | unsure | 0.528 | HELD |
+| EV02 | evasion | signal two: broken-up sentences raise length spread | 200 | unsure | 0.527 | HELD |
+| EV03 | evasion | signal two: a pasted quotation changes the shape | 200 | unsure | 0.586 | HELD |
+| EV04 | evasion | signal one: unusual words raise perplexity | 200 | unsure | 0.677 | HELD |
+| EV05 | evasion | both signals: heavy human editing pass | 200 | human | 0.687 | **BROKE** (heavy edit still gets the human label) |
+| EV06 | evasion | signal two: one very long sentence and one very short | 200 | unsure | 0.643 | HELD |
+| EV07 | evasion | signal two: padding with punctuation | 200 | unsure | 0.678 | HELD |
+| EV08 | evasion | signal one: text below the token window | 200 | unsure | 0.608 | HELD |
+| EV09 | evasion | both: AI text with a human opening paragraph bolted on | 200 | unsure | 0.610 | HELD |
+| EV10 | evasion | signal two: repeated stanza structure | 200 | ai | 1.000 | HELD |
+| FP01 | false_positive | plain, clear human writing with no flourishes | 200 | unsure | 0.589 | HELD |
+| FP02 | false_positive | human writing in a formal register | 200 | unsure | 0.711 | HELD |
+| FP03 | false_positive | a non-native English speaker writing carefully | 200 | unsure | 0.722 | HELD |
+| FP04 | false_positive | a student essay written to a rubric | 200 | unsure | 0.794 | HELD |
+| FP05 | false_positive | technical documentation written by a person | 200 | unsure | 0.782 | HELD |
+| FP06 | false_positive | a person imitating a formal template | 200 | unsure | 0.594 | HELD |
+| FP07 | false_positive | human writing that repeats a phrase deliberately | 200 | unsure | 0.715 | HELD |
+| FP08 | false_positive | very short genuine human submission | 200 | unsure | 0.613 | HELD |
+| PI01 | prompt_injection | instruction to ignore the check | 200 | unsure | 0.577 | HELD |
+| PI02 | prompt_injection | instruction disguised as a system message | 200 | unsure | 0.582 | HELD |
+| PI03 | prompt_injection | instruction wrapped in the writer's voice | 200 | unsure | 0.660 | HELD |
+| PI04 | prompt_injection | attempt to make the label text hostile | 200 | unsure | 0.572 | HELD |
+| PI05 | prompt_injection | attempt to inject into the audit log | 200 | unsure | 0.693 | HELD |
+| PI06 | prompt_injection | instruction plus real human text | 200 | unsure | 0.549 | HELD |
+| MF01 | malformed | text is only whitespace | 400 |  |  | HELD |
+| MF02 | malformed | text is a single character | 400 |  |  | HELD (now rejected with 400 `unscorable_text`) |
+| MF03 | malformed | text is control characters | 400 |  |  | HELD (now rejected with 400 `unscorable_text`) |
+| MF04 | malformed | text is only punctuation | 400 |  |  | HELD (now rejected with 400 `unscorable_text`) |
+| MF05 | malformed | text is a very long single word | 400 |  |  | HELD (now rejected with 400 `unscorable_text`) |
+| MF06 | malformed | text is emoji only | 400 |  |  | HELD (now rejected with 400 `unscorable_text`) |
+| MF07 | malformed | text is right-to-left script | 400 |  |  | HELD (now rejected with 400 `unscorable_text`) |
+| MF08 | malformed | text is 60,000 characters | 413 |  |  | HELD |
+| RQ01 | malformed | no text field at all | 400 |  |  | HELD |
+| RQ02 | malformed | no creator_id | 400 |  |  | HELD |
+| RQ03 | malformed | text is a number | 400 |  |  | HELD |
+| RQ04 | malformed | text is a list | 400 |  |  | HELD |
+| RQ05 | malformed | text is null | 400 |  |  | HELD |
+| RQ06 | malformed | creator_id is an object | 400 |  |  | HELD |
+| RQ07 | malformed | body is a JSON array, not an object | 400 |  |  | HELD |
+| RQ08 | malformed | body is unparseable JSON | 400 |  |  | HELD (first run got 429 before reaching the route; re-run alone: 400) |
+| RQ09 | malformed | body is empty | 400 |  |  | HELD (first run got 429 before reaching the route; re-run alone: 400) |
+| RQ10 | malformed | body is form-encoded, not JSON | 400 |  |  | HELD (first run got 429 before reaching the route; re-run alone: 400) |
+| RQ11 | malformed | body is JSON claiming to be plain text | 400 |  |  | HELD (first run got 429 before reaching the route; re-run alone: 400) |
+| RQ12 | malformed | deeply nested JSON | 400 |  |  | HELD |
+| FL01_01 | flood_same_creator | 20 rapid submissions from one creator | 200 | unsure | 0.618 | HELD |
+| FL01_02 | flood_same_creator | 20 rapid submissions from one creator | 200 | unsure | 0.618 | HELD |
+| FL01_03 | flood_same_creator | 20 rapid submissions from one creator | 200 | unsure | 0.618 | HELD |
+| FL01_04 | flood_same_creator | 20 rapid submissions from one creator | 429 |  |  | HELD |
+| FL01_05 | flood_same_creator | 20 rapid submissions from one creator | 429 |  |  | HELD |
+| FL01_06 | flood_same_creator | 20 rapid submissions from one creator | 429 |  |  | HELD |
+| FL01_07 | flood_same_creator | 20 rapid submissions from one creator | 429 |  |  | HELD |
+| FL01_08 | flood_same_creator | 20 rapid submissions from one creator | 429 |  |  | HELD |
+| FL01_09 | flood_same_creator | 20 rapid submissions from one creator | 429 |  |  | HELD |
+| FL01_10 | flood_same_creator | 20 rapid submissions from one creator | 429 |  |  | HELD |
+| FL01_11 | flood_same_creator | 20 rapid submissions from one creator | 429 |  |  | HELD |
+| FL01_12 | flood_same_creator | 20 rapid submissions from one creator | 429 |  |  | HELD |
 
+**Result after: 1 broke, 55 held** (before: 4 broke, 52 held).
 
-**Did it help, and how do I know:**
+**Before and after side by side** (only the attacks whose outcome changed, plus the one still broken):
 
-<!-- Widening the unsure band usually fixes one problem and creates another.
-     Reporting that trade honestly is worth full credit. -->
+| ID | What it went for | Before | After |
+|---|---|---|---|
+| EV05 | both signals: heavy human editing pass | 200 human 0.687 — BROKE | 200 human 0.687 — BROKE |
+| MF02 | text is a single character | 500 — BROKE | 400 — HELD |
+| MF03 | text is control characters | 200 unsure 0.625 | 400 — HELD |
+| MF04 | text is only punctuation | 200 unsure 0.503 | 400 — HELD |
+| MF05 | text is a very long single word | 200 unsure 0.624 | 400 — HELD |
+| MF06 | text is emoji only | 200 ai 0.999 — BROKE | 400 — HELD |
+| MF07 | text is right-to-left script | 200 ai 0.953 — BROKE | 400 — HELD |
 
+### Run Log — After
 
+Same format as the before log, run with `python run_eval.py --label after` and `python extra_checks.py --label after` (raw: `results/run_2026-11-04_2037_after.md`, `results/extra_2026-11-04_2037_after.md`). All three trials matched again.
+
+| Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict (before → after) |
+|---|---|---|---|---|---|
+| 1. Human writing flagged as AI | 0 of 20 labelled "AI" | 0/20 | 0/20 | 0/20 | MET → MET |
+| 2. Score spread | median gap of at least 0.4 | 0.063 | 0.063 | 0.063 | MISSED → MISSED |
+| 3. Label coverage | all 3 labels, real and controlled | 2 of 3 real; 6 of 7 controlled | same | same | MISSED → MISSED |
+| 4. Appeal path | 10 of 10, unknown id gives 404 | 10/10, 404 | 10/10, 404 | 10/10, 404 | MET → MET |
+| 5. Bad input | 400 for bad text, 413 over 20,000, 200 at exactly 20,000 | 7/8 (the exactly-20,000 text returned 400) | 7/8 | 7/8 | MET → **MISSED** |
+
+For criterion 5, the statuses in each trial were `[400, 400, 400, 400, 400, 400, 413, 400]`; the last entry is the text of exactly 20,000 characters, which the criterion says must pass validation and which now returns 400 `unscorable_text`.
+
+**Did it help, and how do I know:** yes for what it targeted, and it cost me one criterion. The attack run shows it directly: MF02, MF06 and MF07 went from a 500 and two false AI accusations to clean 400s, so broken attacks fell from 4 to 1, and the crash now leaves an audit entry. Criteria 1 to 4 came out exactly as before (same medians, same labels), so it did nothing for the real problem, which is that my signals do not separate human from AI text.
+
+**What it cost on the other side:** (1) Criterion 5 went from MET to MISSED. My test text for "exactly 20,000 characters" is one repeated word, so the new minimum rejects it; a realistic 20,000-character text with many words would pass, but the criterion as written does not say that, so I count it as a miss. (2) Writers using a non-Latin script (the MF07 case) now get a 400 instead of a result. That is better than being falsely accused, but it still means they cannot use the service. (3) Any real text of 4 words or fewer is refused.
 
 ---
 
 ## What's Still Broken
 
-<!-- For each attack still getting through and each criterion still missed:
-     what you'd do, and why you stopped. -->
+- **EV05 (heavy human edit still gets the human label).** Both signals read the edited text as human and they agree, so my disagreement rule has nothing to catch. I would need a signal that is not moved by an editing pass, or to lower the human cutoff so an agreement this weak stays "unsure". I stopped because either is a second change, and the cutoff move trades against criterion 3.
+- **Criterion 2 (gap 0.063 against 0.4).** The signals do not separate my test sets. A larger detector model or a calibration step against labelled data is the real fix. I stopped because it is far bigger than one change and the improvement rule allowed one.
+- **Criterion 3 (AI label unreachable; 0.2 versus 0.35).** No real piece reaches the 0.9 AI cutoff, and the human cutoff in `config.py` is 0.35 where my criterion says 0.2. I would set both cutoffs from measured data. I stopped because lowering the AI cutoff to something reachable, about 0.65, would put a human piece (h15, 0.704) in the AI band, which breaks criterion 1.
+- **Criterion 5 (exactly 20,000 characters).** I would apply the 5-word minimum only to short text, or count tokens instead of words, and re-run. I stopped because that is a second change on top of the one measured here.
+- **Non-Latin text is refused, not understood.** The real fix is a Unicode-aware word splitter in signal two and a detector that handles other scripts. I stopped because it changes a signal.
+- **Rate limiting is per `creator_id`,** so a script that rotates the id gets a fresh allowance each time. I did not attempt per-address limits on top.
+- **Prompt injection held, but only by architecture.** Neither signal reads instructions, so the six attacks changed nothing, but that protection would vanish if I added a model that reads the text as a prompt.
 
-
-
-**The trade I'd make if this ran for real:**
-
-<!-- Two sentences. Fewer wrong accusations means more AI text getting through.
-     Say which way you'd go and WHO PAYS FOR IT. -->
-
+**The trade I'd make if this ran for real:** I would keep the 0.9 AI cutoff, because a wrong accusation damages a real writer and a missed AI piece only costs the site some moderation. The people who pay for that are the site's readers and any writer whose honest work is competing with undetected AI text, since with these signals the site would almost never say "AI" at all.
 
 
 <!-- ═════════════════════════════════════════════════════════════════════

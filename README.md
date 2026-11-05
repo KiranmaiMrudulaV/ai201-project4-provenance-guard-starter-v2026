@@ -39,7 +39,7 @@
 A writer's text goes through seven steps before a reader sees a label.
 
 1. **Arrives.** `POST /submit` receives JSON with `text` and `creator_id` (`app.py::submit`).
-2. **Validated.** Missing, empty, or non-string `text` or `creator_id` returns HTTP 400. Text over 20,000 characters returns HTTP 413. Rejected requests write nothing to the log.
+2. **Validated.** Missing, empty, or non-string `text` or `creator_id` returns HTTP 400. Text over 20,000 characters returns HTTP 413, and (added in unit 8) text with fewer than 5 Latin-alphabet words returns HTTP 400 `unscorable_text`. Rejected requests create no decision, but each is written to the log as a `rejected` entry.
 3. **Signal one.** `detector.model_signal` asks a local gpt2 model how predictable the text is and returns a 0–1 score (higher = more AI-like).
 4. **Signal two.** `stylometry.style_signal` measures the shape of the text (sentence-length spread, word variety, punctuation) and returns a 0–1 score in the same direction.
 5. **Combined.** `scoring.combine_signals` turns the two scores into one number.
@@ -72,7 +72,7 @@ If a writer disagrees, `POST /appeal` takes the `content_id` and their reasoning
 
 **The rule:** a weighted average of the two scores. If the two signals differ by more than 0.35, the result is pulled halfway back toward 0.5. Two methods disagreeing is itself uncertainty, so an "AI" verdict needs both signals leaning the same way. The stretch phrase signal (see below) is then added on top as a one-way nudge of at most +0.25. I chose this to protect writers: a wrongly flagged human costs more than a missed AI piece.
 
-**The numbers:** model weight 0.5, style weight 0.5, disagreement gap 0.35, shrink factor 0.5, phrase bonus 0.25 (all in `config.py`). Label cutoffs: human at or below 0.35, AI at or above 0.90.
+**The numbers:** model weight 0.5, style weight 0.5, disagreement gap 0.35, shrink factor 0.5, phrase bonus 0.25 (all in `config.py`). Label cutoffs: human at or below 0.30 (it was 0.35 until the unit 8 second improvement), AI at or above 0.90. Minimum text: 5 Latin-alphabet words (unit 8).
 
 **Where it lives:** `scoring.py::combine_signals`
 
@@ -96,8 +96,8 @@ Caveat: all three human poems (Eliot, Donne, Frost) are famous and may be memori
 
 | Label | Score range | The exact text a reader sees |
 |---|---|---|
-| high-confidence human | 0.00 – 0.35 | This text may be human-written, but we cannot verify the authorship. No further action is required. |
-| unsure | 0.35 – 0.90 | We could not determine whether AI was used. No action is required, and the writer can request a review. |
+| high-confidence human | 0.00 – 0.30 | This text may be human-written, but we cannot verify the authorship. No further action is required. |
+| unsure | 0.30 – 0.90 | We could not determine whether AI was used. No action is required, and the writer can request a review. |
 | high-confidence AI | 0.90 – 1.00 | This text may be AI-generated, but this can be wrong. The writer can request a review. |
 
 **Why I worded the "unsure" one this way:** it does not accuse anyone and it says plainly that the system could not decide. It also tells the writer they can ask for a review, because the person reading it may have written every word themselves. Even the "human" label says it cannot verify authorship, because the system cannot prove it either way.
@@ -1059,6 +1059,8 @@ I am attempting all three unit 8 stretch features. This section was committed be
 2. **Per-creator limits.** My limiter is already keyed on `creator_id` (falling back to the address when there is none), because that is how the starter's key function works, so I am not claiming to have invented it. What I am adding is a setting that switches the key between creator and address, and a measurement of both, so I can say what per-creator limiting catches that per-address limiting missed and what it costs.
 3. **Three attacks on someone else's system.** Three attacks I write myself against a classmate's Provenance Guard, with their permission. This one depends on a classmate agreeing and sharing a running service, so I will say plainly in the README if I could not do it.
 
+   **Outcome: not done.** I did not arrange a classmate's system to attack, so I wrote no attacks and I am not claiming this stretch feature.
+
 ### Stretch — the second improvement: lower the human cutoff to 0.30
 
 **What I changed:** one thing. `config.HUMAN_THRESHOLD` went from 0.35 to 0.30 (commit `7459350`), on top of the first improvement. Nothing else moved: the 5-word minimum, the AI cutoff of 0.9, the signals, the weights and the labels are as they were in the first "after" run.
@@ -1097,9 +1099,9 @@ I am attempting all three unit 8 stretch features. This section was committed be
 
 ## What's Still Broken
 
-- **EV05 (heavy human edit still gets the human label).** Both signals read the edited text as human and they agree, so my disagreement rule has nothing to catch. I would need a signal that is not moved by an editing pass, or to lower the human cutoff so an agreement this weak stays "unsure". I stopped because either is a second change, and the cutoff move trades against criterion 3.
+- **EV05 (heavy human edit) is no longer broken, but only by a patch.** Both signals read the edited text as human and they agree, so my disagreement rule has nothing to catch. The second improvement (human cutoff 0.35 to 0.30) pushed its 0.313 into "unsure", but it fixed this one input, not the cause: a slightly heavier edit would score below 0.30 again. The real fix is a signal that an editing pass does not move. I stopped because that is a new signal, and the cutoff change already made the human label rarer.
 - **Criterion 2 (gap 0.063 against 0.4).** The signals do not separate my test sets. A larger detector model or a calibration step against labelled data is the real fix. I stopped because it is far bigger than one change and the improvement rule allowed one.
-- **Criterion 3 (AI label unreachable; 0.2 versus 0.35).** No real piece reaches the 0.9 AI cutoff, and the human cutoff in `config.py` is 0.35 where my criterion says 0.2. I would set both cutoffs from measured data. I stopped because lowering the AI cutoff to something reachable, about 0.65, would put a human piece (h15, 0.704) in the AI band, which breaks criterion 1.
+- **Criterion 3 (AI label unreachable; 0.2 versus 0.30).** No real piece reaches the 0.9 AI cutoff, and the human cutoff in `config.py` is now 0.30 (it was 0.35 until the second improvement) where my criterion says 0.2. I would set both cutoffs from measured data. I stopped because lowering the AI cutoff to something reachable, about 0.65, would put a human piece (h15, 0.704) in the AI band, which breaks criterion 1.
 - **Criterion 5 (exactly 20,000 characters).** I would apply the 5-word minimum only to short text, or count tokens instead of words, and re-run. I stopped because that is a second change on top of the one measured here.
 - **Non-Latin text is refused, not understood.** The real fix is a Unicode-aware word splitter in signal two and a detector that handles other scripts. I stopped because it changes a signal.
 - **Rate limiting is per `creator_id`,** so a script that rotates the id gets a fresh allowance each time. I did not attempt per-address limits on top.

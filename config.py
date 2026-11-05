@@ -86,7 +86,7 @@ MAX_TEXT_CHARS = 20_000
 # getting through. There is no setting that avoids the trade — only settings
 # that decide who pays for it.
 
-HUMAN_THRESHOLD = 0.35
+HUMAN_THRESHOLD = 0.30
 AI_THRESHOLD = 0.9
 
 # ⚠️ One thing that catches people out in Milestone 5. A weighted average can

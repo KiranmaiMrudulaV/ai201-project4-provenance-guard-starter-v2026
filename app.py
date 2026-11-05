@@ -76,6 +76,10 @@ if config.RATE_LIMITING_ENABLED:
         matters: one script can look like a thousand callers, and one household
         can look like one.
         """
+        # Stretch: AI201_RATE_KEY=address switches to plain per-address limiting
+        # so the two can be measured against each other.
+        if config.RATE_LIMIT_KEY == "address":
+            return get_remote_address()
         payload = request.get_json(silent=True)
         # A body that parses as JSON but isn't an object — a bare list or
         # string — has no .get. Without this guard the key function raises

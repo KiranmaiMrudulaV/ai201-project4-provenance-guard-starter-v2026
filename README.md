@@ -1079,6 +1079,20 @@ I am attempting all three unit 8 stretch features. This section was committed be
 
 **Did it help, and how do I know:** yes, for the one thing it targeted, at a small cost. EV05 no longer gets the human label, and an AI poem (a09, combined 0.348) that used to get the human label now gets "unsure", which is also correct. The cost is that the human label became rarer: in my 20 human pieces it fell from 2 to 1 (only h16, the Eliot excerpt, scores low enough), so a real human now almost never sees "this may be human-written". It did nothing for criteria 2, 3 or 5: scores did not move, the gap is still 0.063, the AI label is still unreachable, and a score of 0.2 still returns "human" because 0.2 is under 0.30.
 
+### Stretch — per-creator limits
+
+**What I did, and what was already there:** my limiter was already keyed on `creator_id` (falling back to the address when there is none), because that is how the starter's `rate_limit_key` works. What I added is a setting, `config.RATE_LIMIT_KEY` (environment variable `AI201_RATE_KEY`, either `creator` or `address`), and `limit_modes.py`, which sends the same three abuse cases through each mode at 3 per minute. The default stays `creator`. Raw output: `results/limit_modes.md`.
+
+| Case (10 requests unless noted) | Per-creator (default) | Per-address |
+|---|---|---|
+| **A.** One script, one address, a new `creator_id` every time | `200 ×10`, **0 blocked** | `200 ×3` then `429 ×7`, 7 blocked |
+| **B.** Two writers sharing one address, 3 requests each (a household) | `200 ×6`, **0 blocked** | `200 ×3` then `429 ×3`, the second writer is blocked |
+| **C.** One `creator_id`, a new address every time | `200 ×3` then `429 ×7`, 7 blocked | `200 ×10`, **0 blocked** |
+
+**What per-creator limiting catches that per-address missed:** case C, one account spread across many addresses (a botnet, a rotating proxy, or just someone switching networks). Per-address counts each address once and never trips. It also stops punishing case B: two people behind one office or household connection each keep their own allowance, where per-address limiting blocks the second writer for something the first one did.
+
+**What it costs:** case A. The `creator_id` is whatever the caller writes in the request body, so a script that invents a new one each time is never counted twice and is not limited at all, while per-address limiting stops it after 3. This is the weakness I could not fix with the key alone: per-creator limiting is only as strong as the identity behind the key, and I have no authentication. The attack set's `flood_same_creator` family only tested the case per-creator handles well. A real deployment would need both keys at once (so A and C are each caught) and a verified identity; I did not build that, and combining them would bring back case B's false blocks on shared addresses.
+
 ---
 
 ## What's Still Broken

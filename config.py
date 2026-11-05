@@ -109,6 +109,10 @@ AI_THRESHOLD = 0.9
 
 RATE_LIMITING_ENABLED = True #os.getenv("AI201_RATE_LIMITS", "0") == "1"
 
+# What a caller counts as: "creator" (the creator_id in the request, falling
+# back to the address when there is none) or "address" (the caller's IP only).
+RATE_LIMIT_KEY = os.getenv("AI201_RATE_KEY", "creator")
+
 RATE_LIMIT_PER_MINUTE = 3
 RATE_LIMIT_PER_DAY = 30
 

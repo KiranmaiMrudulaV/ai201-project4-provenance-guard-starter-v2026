@@ -160,9 +160,9 @@ I used Claude Code throughout this project. It wrote most of the Python (the `/s
 
 **Unit 8**
 
-*Moment 3: marking the attacks.* Claude Code ran the staff attack set and the five-criteria trials for me and wrote the helper scripts (`scenarios.py`, `extra_checks.py`). I asked it to propose a rule for when an attack counts as broken, and I agreed to it (the attacker got their goal) instead of marking by feel. It also caught that my first rate-limit "test" with 5 per minute had run while the limiter was still switched off, so I did not use that run as evidence. I chose the verdicts and picked the emoji and non-Latin posts as my worst outcome myself.
+*Moment 3: marking the attacks.* Claude Code ran the staff attack set and the five-criteria trials for me and wrote the helper scripts (`scenarios.py`, `extra_checks.py`). It proposed a rule for when an attack counts as broken (the attacker got their goal), and I agreed to it instead of marking by feel. It also caught that my first rate-limit "test" with 5 per minute had run while the limiter was still switched off, so I did not use that run as evidence. I chose the verdicts and picked the emoji and non-Latin posts as my worst outcome myself.
 
-*Moment 4: choosing the improvement.* I asked what my diagnosis pointed at and it gave three options (validate input, move a threshold, reweight signals). I took its suggestion to validate input because one cause explained three broken attacks. It wrote the change and the before and after runs, and when the after run showed criterion 5 had started failing, I kept that miss in the README instead of changing the test.
+*Moment 4: choosing the improvement.* After my diagnoses, it laid out three options (validate input, move a threshold, reweight signals) and recommended validating input because one cause explained three broken attacks. I agreed. It wrote the change and the before and after runs, and when the after run showed criterion 5 had started failing, I kept that miss in the README instead of changing the test.
 
 ## Stretch Features (declared before building)
 

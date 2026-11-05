@@ -151,7 +151,7 @@ def health():
 # ── YOU BUILD THIS ────────────────────────────────────────────────────────────
 
 @app.post("/submit")
-# @limiter.limit(f"{config.RATE_LIMIT_PER_MINUTE}/minute;{config.RATE_LIMIT_PER_DAY}/day")
+@limiter.limit(f"{config.RATE_LIMIT_PER_MINUTE}/minute;{config.RATE_LIMIT_PER_DAY}/day")
 def submit():
     """
     Take a piece of text, decide about it, log the decision, answer.
@@ -201,17 +201,22 @@ def submit():
     """
     payload = request.get_json(silent=True)
     if not isinstance(payload, dict):
+        audit.log_rejection(creator_id="unknown", reason="body_not_a_json_object")
         return jsonify({"error": "bad_request", "message": "Send a JSON object."}), 400
 
     # Step 2 — JSON goes in: pull text and creator_id out of the body
     text = payload.get("text")
     creator_id = payload.get("creator_id")
+    logged_creator = creator_id if isinstance(creator_id, str) and creator_id.strip() else "unknown"
     if not isinstance(text, str) or not text.strip():
+        audit.log_rejection(creator_id=logged_creator, reason="text_missing_or_empty")
         return jsonify({"error": "bad_request", "message": "Send JSON with a non-empty \"text\"."}), 400
     if not isinstance(creator_id, str) or not creator_id.strip():
+        audit.log_rejection(creator_id=logged_creator, reason="creator_id_missing_or_empty")
         return jsonify({"error": "bad_request", "message": "Send JSON with a non-empty \"creator_id\"."}), 400
 
     if len(text) > config.MAX_TEXT_CHARS:
+        audit.log_rejection(creator_id=logged_creator, reason="text_too_large", length=len(text))
         return jsonify({
             "error": "too_large",
             "message": f"Text is longer than {config.MAX_TEXT_CHARS} characters.",

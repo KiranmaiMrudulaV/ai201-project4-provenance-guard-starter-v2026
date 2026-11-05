@@ -66,6 +66,9 @@ DISAGREEMENT_SHRINK = 0.5
 # much. See scoring.combine_signals for why it is not averaged in.
 PHRASE_BONUS = 0.25
 
+# Fewest Latin-alphabet words /submit will score (the unit 8 improvement).
+MIN_WORDS = 5
+
 # Longest text /submit accepts, in characters (criteria.md, criterion 5).
 MAX_TEXT_CHARS = 20_000
 

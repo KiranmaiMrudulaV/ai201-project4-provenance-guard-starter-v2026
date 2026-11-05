@@ -222,11 +222,26 @@ def submit():
             "message": f"Text is longer than {config.MAX_TEXT_CHARS} characters.",
         }), 413
 
-    # Signal one — the model loads once, on the first call, and stays in memory
     import detector
     import phrases
     import scoring
     import stylometry
+
+    # Unit 8 improvement: refuse text the signals cannot read, before they see it.
+    # Signal one raises below 3 tokens, and signal two finds no words in emoji or
+    # non-Latin text and scores it as maximally AI-like.
+    word_count = len(stylometry.words(text))
+    if word_count < config.MIN_WORDS:
+        audit.log_rejection(creator_id=creator_id, reason="too_few_words", words=word_count)
+        return jsonify({
+            "error": "unscorable_text",
+            "message": (
+                f"We could not read enough text to check this. Please send at "
+                f"least {config.MIN_WORDS} words written in the Latin alphabet."
+            ),
+        }), 400
+
+    # Signal one — the model loads once, on the first call, and stays in memory
 
     model_score = detector.model_signal(text)
     style_score = stylometry.style_signal(text)

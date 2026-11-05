@@ -22,49 +22,69 @@ A scenario carries **either** of these:
               because you cannot express "the field is missing" as a string.
 """
 
+import json
+from pathlib import Path
+
+_TESTS = Path(__file__).parent / "tests"
+
+
+def _load(name):
+    return [json.loads(line) for line in open(_TESTS / name, encoding="utf-8")]
+
+
+_HUMAN = _load("human.jsonl")   # 20 pieces with known human authorship
+_AI = _load("ai.jsonl")         # 10 unedited chatbot pieces
+_BY_ID = {r["creator_id"]: r["text"] for r in _HUMAN + _AI}
+
+# NOTE: run_eval.py builds each creator_id as eval_<first 12 chars of name>_<n>
+# and reuses it across the three trials, so (a) scenario names must differ in
+# their first 12 characters and (b) every body must carry its own creator_id,
+# or the 3-per-minute rate limit would block my own test.
+
 SCENARIOS = [
     {
-        "name": "my own writing",
+        # Criterion 1: of 20 known-human pieces (tests/human.jsonl), zero may
+        # be labelled "AI" (guess == "ai").
+        "name": "fp_human_20",
         "criterion": 1,
-        # ⚠️ PUT YOUR OWN WRITING HERE. Not AI text, not a sample from the web —
-        # things you actually wrote. This is the criterion that matters most and
-        # it's meaningless with someone else's prose.
-        "texts": [
-            "REPLACE ME with a paragraph you wrote yourself.",
-            "REPLACE ME with another one. Ten pieces is the usual number.",
-        ],
+        "texts": [r["text"] for r in _HUMAN],
     },
     {
-        "name": "label coverage",
+        # Criterion 2: median score of 10 AI pieces minus median of 10 human
+        # pieces must be at least 0.4. The first 10 texts are AI (a01-a10),
+        # the last 10 are human (h01-h10 as listed in tests/human.jsonl).
+        "name": "spread_gap",
         "criterion": 2,
-        # Inputs spread across your score range, so you can check all three
-        # labels are actually reachable.
-        "texts": [
-            "REPLACE ME with something you're confident is AI-generated.",
-            "REPLACE ME with something you're confident is human-written.",
-            "REPLACE ME with something genuinely borderline.",
+        "texts": [r["text"] for r in _AI] + [r["text"] for r in _HUMAN[:10]],
+    },
+    {
+        # Criterion 3 (real inputs): at least one real piece must produce each
+        # of the three labels. Chosen from my own test files: the two lowest
+        # (h16, h05), a middle one (h14), and the two highest (h15, a01).
+        # The controlled-score boundary half of criterion 3 is in extra_checks.py.
+        "name": "label_cover",
+        "criterion": 3,
+        "texts": [_BY_ID[i] for i in ("h16", "h05", "h14", "h15", "a01")],
+    },
+    {
+        # Criterion 5: bad input must return 400 (or 413 for oversize), never a
+        # 500, and write no decision. Expected status in the comment.
+        "name": "bad_input",
+        "criterion": 5,
+        "bodies": [
+            {"creator_id": "eval_bad_missing"},                              # 400 no text field
+            {"text": None, "creator_id": "eval_bad_null"},                   # 400
+            {"text": 12345, "creator_id": "eval_bad_number"},                # 400 not a string
+            {"text": ["a", "b"], "creator_id": "eval_bad_list"},             # 400 not a string
+            {"text": "", "creator_id": "eval_bad_empty"},                    # 400
+            {"text": "   \n\t  ", "creator_id": "eval_bad_blank"},         # 400 whitespace only
+            {"text": "a" * 20001, "creator_id": "eval_bad_over"},            # 413 one over the limit
+            {"text": "a" * 20000, "creator_id": "eval_bad_exact"},           # 200 exactly the limit
         ],
     },
-    # A bad-input criterion looks like this. Uncomment and adjust if that's one
-    # of your five — these are raw request bodies, sent exactly as written.
-    #
-    # {
-    #     "name": "bad input",
-    #     "criterion": 3,
-    #     "bodies": [
-    #         {"text": "", "creator_id": "eval_bad_empty"},
-    #         {"creator_id": "eval_bad_missing"},          # no text field at all
-    #         {"text": "word " * 50000, "creator_id": "eval_bad_huge"},
-    #         {"text": None, "creator_id": "eval_bad_null"},
-    #     ],
-    # },
-
-    # TODO: add what your remaining criteria need.
-    #
-    # A criterion about the appeal path can't be tested by sending text alone;
-    # it needs a submission first and then an appeal against the content_id
-    # that came back. You'll need to test that one by hand, or extend this file
-    # and run_eval.py to do it. Saying which you did is part of the write-up.
+    # Criterion 4 (the appeal path) needs a submission and then an appeal
+    # against its content_id, which run_eval.py cannot do. It is tested by
+    # extra_checks.py instead, three trials of ten appeals each.
 ]
 
 

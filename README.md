@@ -1051,6 +1051,16 @@ For criterion 5, the statuses in each trial were `[400, 400, 400, 400, 400, 400,
 
 ---
 
+## Stretch Features — Unit 8 (declared before building)
+
+I am attempting all three unit 8 stretch features. This section was committed before any of them were built; what each one did is written up below it once it exists.
+
+1. **A second measured improvement.** One more change taken from my diagnosis (EV05 got the human label because its combined score of 0.313 fell under my 0.35 human cutoff, and my criterion 3 says 0.2). I will run the attack set and my five criteria again, three trials each, and add a third run log in the same table format, saying whether it helped.
+2. **Per-creator limits.** My limiter is already keyed on `creator_id` (falling back to the address when there is none), because that is how the starter's key function works, so I am not claiming to have invented it. What I am adding is a setting that switches the key between creator and address, and a measurement of both, so I can say what per-creator limiting catches that per-address limiting missed and what it costs.
+3. **Three attacks on someone else's system.** Three attacks I write myself against a classmate's Provenance Guard, with their permission. This one depends on a classmate agreeing and sharing a running service, so I will say plainly in the README if I could not do it.
+
+---
+
 ## What's Still Broken
 
 - **EV05 (heavy human edit still gets the human label).** Both signals read the edited text as human and they agree, so my disagreement rule has nothing to catch. I would need a signal that is not moved by an editing pass, or to lower the human cutoff so an agreement this weak stays "unsure". I stopped because either is a second change, and the cutoff move trades against criterion 3.

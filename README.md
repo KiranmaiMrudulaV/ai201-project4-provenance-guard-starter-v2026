@@ -344,40 +344,601 @@ I ran the full attack set (56 attacks) against the service before changing anyth
 
 ## Run Log and Verdicts
 
-<!-- Your five criteria across three trials. `run_eval.py --label before`. -->
+Run with `python run_eval.py --label before` and `python extra_checks.py --label before`, nothing changed between trials (`scenarios.py` defines the inputs; raw output is in `results/run_2026-11-04_2023_before.md` and `results/extra_2026-11-04_2023_before.md`). All three trials matched for every criterion, which is expected: neither signal is random.
 
 | Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
 |---|---|---|---|---|---|
-| 1.  |  |  |  |  |  |
-| 2.  |  |  |  |  |  |
-| 3.  |  |  |  |  |  |
-| 4.  |  |  |  |  |  |
-| 5.  |  |  |  |  |  |
+| 1. Human writing flagged as AI | 0 of 20 labelled "AI" | 0/20 | 0/20 | 0/20 | MET |
+| 2. Score spread | median gap of at least 0.4 | 0.063 | 0.063 | 0.063 | MISSED |
+| 3. Label coverage | all 3 labels, on real inputs and at the controlled boundaries | 2 of 3 real labels; 6 of 7 controlled | same | same | MISSED |
+| 4. Appeal path | 10 of 10 change status and are recorded; unknown id gives 404 | 10/10, 404 | 10/10, 404 | 10/10, 404 | MET |
+| 5. Bad input | 400 for bad text, 413 over 20,000, 200 at exactly 20,000, no decision written | 8/8 as targeted | 8/8 | 8/8 | MET |
 
-**Real output from one trial**, pasted as text, naming the file and function
-that produced it:
+**How I decided each verdict**
+
+- **1: MET, but weakly.** Zero of 20 were labelled AI in every trial. The highest combined score for a human piece was 0.704, well under the 0.9 AI cutoff, so this passes largely because the AI label is almost unreachable (see criterion 3).
+- **2: MISSED.** In each trial the median combined score was 0.5687 for the 10 AI pieces and 0.5059 for 10 human pieces, a gap of 0.063 against a target of 0.4.
+- **3: MISSED.** On real inputs only "human" and "unsure" appeared; the highest-scoring real piece (a01) reached 0.766 and was labelled "unsure". On the controlled scores, 0.2 returned "human" where the criterion says "unsure" (6 of 7 passed).
+- **4: MET.** 10 of 10 appeals set `under_review` (read back through `GET /content/<id>`) and wrote one appeal entry holding the previous status; the unknown id returned 404 and the log count did not change.
+- **5: MET.** Six bad bodies returned 400, 20,001 characters returned 413, 20,000 returned 200. Rejections are logged as `rejected` events, which carry no `content_id` or guess, so no assessment record is created. (My criterion does not cover a one-character text; the attack run found that one crashes, see below.)
+
+**Real output from one trial** (trial 1). Produced by `run_eval.py::main`, which calls `app.py::submit`; criterion 4 and the controlled scores by `extra_checks.py` (calling `app.py::appeal` and `scoring.py::score_to_label`). For criteria 1 and 2 the `label` field is left out for length; it is one of the three label texts in Label Variants.
+
+*Criterion 1 — `fp_human_20`, trial 1:*
 
 ```json
+[
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5697,
+    "model_score": 0.5754,
+    "style_score": 0.564,
+    "sent": "I am by birth a Genevese, and my family is one of the most distinguish"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5204,
+    "model_score": 0.6123,
+    "style_score": 0.347,
+    "sent": "It is a truth universally acknowledged, that a single man in possessio"
+  },
+  {
+    "status": 200,
+    "guess": "human",
+    "confidence": 0.668,
+    "model_score": 0.3907,
+    "style_score": 0.2734,
+    "sent": "Mr. Bennet was so odd a mixture of quick parts, sarcastic humour, rese"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5156,
+    "model_score": 0.6597,
+    "style_score": 0.2778,
+    "sent": "“Mr. Bennet, how can you abuse your own children in such a way? You ta"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5886,
+    "model_score": 0.4449,
+    "style_score": 0.378,
+    "sent": "During college, I got to study alongside classmates who consistently d"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.6161,
+    "model_score": 0.7198,
+    "style_score": 0.5124,
+    "sent": "Companies can sell shares of ownership of the company on the stock mar"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5765,
+    "model_score": 0.7085,
+    "style_score": 0.4445,
+    "sent": "My favorite foods are steak, pizza and sweets. I used to be so picky, "
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5274,
+    "model_score": 0.7808,
+    "style_score": 0.3287,
+    "sent": "I’m not really a movie person, but I’ve been wanting to change that. L"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5742,
+    "model_score": 0.5037,
+    "style_score": 0.3478,
+    "sent": "So some of the examples in the pictures are actually fine, but anyway."
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5579,
+    "model_score": 0.8042,
+    "style_score": 0.4276,
+    "sent": "I am a morning person. It's almost 5 a.m., and I am wide awake. A lot "
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5059,
+    "model_score": 0.3801,
+    "style_score": 0.418,
+    "sent": "The woman in the 3rd slid is delusional. So her looks match rejected h"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5464,
+    "model_score": 0.3315,
+    "style_score": 0.5756,
+    "sent": "I got told I don’t know shit about dictatorships because I criticized "
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.7041,
+    "model_score": 0.8319,
+    "style_score": 0.5763,
+    "sent": "I honestly can't remember the last time I had a real, genuine friend. "
+  },
+  {
+    "status": 200,
+    "guess": "human",
+    "confidence": 0.7207,
+    "model_score": 0.3022,
+    "style_score": 0.2564,
+    "sent": "The Chair she sat in, like a burnished throne,\nGlowed on the marble, w"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5383,
+    "model_score": 0.5536,
+    "style_score": 0.5231,
+    "sent": "I witnessed the exact same thing happen to a man waiting in front of m"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5887,
+    "model_score": 0.5207,
+    "style_score": 0.3019,
+    "sent": "SpaceX never needed NASA, except as a source of funding (by selling pa"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5547,
+    "model_score": 0.6269,
+    "style_score": 0.4825,
+    "sent": "This is mostly from growing food, but a lot of it applies to gardening"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.6058,
+    "model_score": 0.7494,
+    "style_score": 0.4621,
+    "sent": "Hey all, im new here, and I've been into photography for several years"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5942,
+    "model_score": 0.493,
+    "style_score": 0.3187,
+    "sent": "No man is an island,\nEntire of itself,\nEvery man is a piece of the con"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5381,
+    "model_score": 0.4189,
+    "style_score": 0.503,
+    "sent": "Whose woods these are I think I know.\nHis house is in the village thou"
+  }
+]
+```
 
+*Criterion 2 — `spread_gap`, trial 1 (first 10 are AI, last 10 human):*
+
+```json
+[
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.7664,
+    "model_score": 0.6038,
+    "style_score": 0.4291,
+    "sent": "In today’s rapidly evolving world, technology plays a pivotal role in "
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5948,
+    "model_score": 0.3384,
+    "style_score": 0.4721,
+    "sent": "As morning paints the sky with gold,\nA thousand quiet dreams unfold.\nT"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.6727,
+    "model_score": 0.6822,
+    "style_score": 0.4599,
+    "sent": "Cooking is more than simply preparing food; it is an opportunity to ex"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5902,
+    "model_score": 0.3662,
+    "style_score": 0.4534,
+    "sent": "Beyond the clouds, where starlight gleams,\nThe universe unfolds its dr"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5955,
+    "model_score": 0.7469,
+    "style_score": 0.4441,
+    "sent": "Developing positive habits is an essential step toward achieving perso"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5715,
+    "model_score": 0.6718,
+    "style_score": 0.4711,
+    "sent": "The ocean is a remarkable ecosystem that supports diverse marine life "
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.6202,
+    "model_score": 0.2899,
+    "style_score": 0.4697,
+    "sent": "A friendship grows like seeds in spring,\nThrough little acts and every"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.566,
+    "model_score": 0.4737,
+    "style_score": 0.45,
+    "sent": "Travel offers a unique opportunity to broaden perspectives and experie"
+  },
+  {
+    "status": 200,
+    "guess": "human",
+    "confidence": 0.6516,
+    "model_score": 0.18,
+    "style_score": 0.5168,
+    "sent": "The raindrops tap upon the ground,\nCreating music all around.\nThey was"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5955,
+    "model_score": 0.5982,
+    "style_score": 0.387,
+    "sent": "Public libraries are more than buildings filled with books; they are v"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5697,
+    "model_score": 0.5754,
+    "style_score": 0.564,
+    "sent": "I am by birth a Genevese, and my family is one of the most distinguish"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5204,
+    "model_score": 0.6123,
+    "style_score": 0.347,
+    "sent": "It is a truth universally acknowledged, that a single man in possessio"
+  },
+  {
+    "status": 200,
+    "guess": "human",
+    "confidence": 0.668,
+    "model_score": 0.3907,
+    "style_score": 0.2734,
+    "sent": "Mr. Bennet was so odd a mixture of quick parts, sarcastic humour, rese"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5156,
+    "model_score": 0.6597,
+    "style_score": 0.2778,
+    "sent": "“Mr. Bennet, how can you abuse your own children in such a way? You ta"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5886,
+    "model_score": 0.4449,
+    "style_score": 0.378,
+    "sent": "During college, I got to study alongside classmates who consistently d"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.6161,
+    "model_score": 0.7198,
+    "style_score": 0.5124,
+    "sent": "Companies can sell shares of ownership of the company on the stock mar"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5765,
+    "model_score": 0.7085,
+    "style_score": 0.4445,
+    "sent": "My favorite foods are steak, pizza and sweets. I used to be so picky, "
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5274,
+    "model_score": 0.7808,
+    "style_score": 0.3287,
+    "sent": "I’m not really a movie person, but I’ve been wanting to change that. L"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5742,
+    "model_score": 0.5037,
+    "style_score": 0.3478,
+    "sent": "So some of the examples in the pictures are actually fine, but anyway."
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5579,
+    "model_score": 0.8042,
+    "style_score": 0.4276,
+    "sent": "I am a morning person. It's almost 5 a.m., and I am wide awake. A lot "
+  }
+]
+```
+
+*Criterion 3 — `label_cover`, trial 1 (real inputs):*
+
+```json
+[
+  {
+    "status": 200,
+    "guess": "human",
+    "confidence": 0.7207,
+    "model_score": 0.3022,
+    "style_score": 0.2564,
+    "label": "This text may be human-written, but we cannot verify the authorship. No further action is required.",
+    "sent": "The Chair she sat in, like a burnished throne,\nGlowed on the marble, w"
+  },
+  {
+    "status": 200,
+    "guess": "human",
+    "confidence": 0.668,
+    "model_score": 0.3907,
+    "style_score": 0.2734,
+    "label": "This text may be human-written, but we cannot verify the authorship. No further action is required.",
+    "sent": "Mr. Bennet was so odd a mixture of quick parts, sarcastic humour, rese"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.5464,
+    "model_score": 0.3315,
+    "style_score": 0.5756,
+    "label": "We could not determine whether AI was used. No action is required, and the writer can request a review.",
+    "sent": "I got told I don’t know shit about dictatorships because I criticized "
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.7041,
+    "model_score": 0.8319,
+    "style_score": 0.5763,
+    "label": "We could not determine whether AI was used. No action is required, and the writer can request a review.",
+    "sent": "I honestly can't remember the last time I had a real, genuine friend. "
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.7664,
+    "model_score": 0.6038,
+    "style_score": 0.4291,
+    "label": "We could not determine whether AI was used. No action is required, and the writer can request a review.",
+    "sent": "In today’s rapidly evolving world, technology plays a pivotal role in "
+  }
+]
+```
+
+Controlled scores (`scoring.py::score_to_label`):
+
+| score | criterion says | got | |
+|---|---|---|---|
+| 0.1 | human | human | pass |
+| 0.5 | unsure | unsure | pass |
+| 0.95 | ai | ai | pass |
+| 0.199 | human | human | pass |
+| 0.2 | unsure | human | FAIL |
+| 0.899 | unsure | unsure | pass |
+| 0.9 | ai | ai | pass |
+
+*Criterion 4 — appeals, all trials:*
+
+| trial | appeals that worked | unknown id returned | unknown id wrote nothing |
+|---|---|---|---|
+| 1 | 10/10 | 404 | True |
+| 2 | 10/10 | 404 | True |
+| 3 | 10/10 | 404 | True |
+
+Trial 1 detail:
+
+```json
+[
+  [
+    "appeal_t1_01",
+    200,
+    "under_review",
+    1,
+    "pass"
+  ],
+  [
+    "appeal_t1_02",
+    200,
+    "under_review",
+    1,
+    "pass"
+  ],
+  [
+    "appeal_t1_03",
+    200,
+    "under_review",
+    1,
+    "pass"
+  ],
+  [
+    "appeal_t1_04",
+    200,
+    "under_review",
+    1,
+    "pass"
+  ],
+  [
+    "appeal_t1_05",
+    200,
+    "under_review",
+    1,
+    "pass"
+  ],
+  [
+    "appeal_t1_06",
+    200,
+    "under_review",
+    1,
+    "pass"
+  ],
+  [
+    "appeal_t1_07",
+    200,
+    "under_review",
+    1,
+    "pass"
+  ],
+  [
+    "appeal_t1_08",
+    200,
+    "under_review",
+    1,
+    "pass"
+  ],
+  [
+    "appeal_t1_09",
+    200,
+    "under_review",
+    1,
+    "pass"
+  ],
+  [
+    "appeal_t1_10",
+    200,
+    "under_review",
+    1,
+    "pass"
+  ]
+]
+```
+
+*Criterion 5 — `bad_input`, trial 1:*
+
+```json
+[
+  {
+    "status": 400,
+    "guess": null,
+    "confidence": null,
+    "model_score": null,
+    "style_score": null,
+    "label": null,
+    "sent": "{\"creator_id\": \"eval_bad_missing\"}"
+  },
+  {
+    "status": 400,
+    "guess": null,
+    "confidence": null,
+    "model_score": null,
+    "style_score": null,
+    "label": null,
+    "sent": "{\"text\": null, \"creator_id\": \"eval_bad_null\"}"
+  },
+  {
+    "status": 400,
+    "guess": null,
+    "confidence": null,
+    "model_score": null,
+    "style_score": null,
+    "label": null,
+    "sent": "{\"text\": 12345, \"creator_id\": \"eval_bad_number\"}"
+  },
+  {
+    "status": 400,
+    "guess": null,
+    "confidence": null,
+    "model_score": null,
+    "style_score": null,
+    "label": null,
+    "sent": "{\"text\": [\"a\", \"b\"], \"creator_id\": \"eval_bad_list\"}"
+  },
+  {
+    "status": 400,
+    "guess": null,
+    "confidence": null,
+    "model_score": null,
+    "style_score": null,
+    "label": null,
+    "sent": "(empty text)"
+  },
+  {
+    "status": 400,
+    "guess": null,
+    "confidence": null,
+    "model_score": null,
+    "style_score": null,
+    "label": null,
+    "sent": "   \n\t  "
+  },
+  {
+    "status": 413,
+    "guess": null,
+    "confidence": null,
+    "model_score": null,
+    "style_score": null,
+    "label": null,
+    "sent": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.6244,
+    "model_score": 0.9976,
+    "style_score": 0.5,
+    "label": "We could not determine whether AI was used. No action is required, and the writer can request a review.",
+    "sent": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  }
+]
 ```
 
 **Diagnoses**
 
-<!-- For each miss AND each broken attack: the stage and the mechanism.
+*Criterion 2 missed — stages: signal one, signal two, and the combining rule.* Signal one's medians were almost equal (human 0.565, AI 0.536 on my test sets) because gpt2 finds plain, casual human writing predictable (h15 scored 0.83, h12 0.80) while rhymed AI poems scored low (a09 0.18, a07 0.29). Signal two barely separates them either: AI pieces sat at 0.39–0.52, inside the human range of 0.26–0.58. My combining rule averages the two at 0.5 each, so two weak signals give a weak result, and the phrase bonus (+0.25 only when a stock phrase appears) lifted only 4 of 10 AI pieces.
 
-     Your service has five stages: the route, signal one, signal two, the
-     combining rule, and the label mapping.
+*Criterion 3 missed — stages: label mapping and combining rule.* Two separate mechanisms. First, the label mapping: `config.HUMAN_THRESHOLD` is 0.35, not the 0.2 written in my criterion, so a score of 0.2 returns "human" instead of "unsure"; I set 0.35 so that the human label was reachable at all, and never rewrote the criterion. Second, the AI label is unreachable on real text: the combining rule averages signals that sit mid-range, so real scores landed between 0.28 and 0.77, and `config.AI_THRESHOLD` of 0.9 is above every one of them.
 
-     Not a diagnosis:  "The evasion attacks got through."
-     A diagnosis:      "Four evasion inputs got through. All four had typos
-                        added to AI-generated text. My second signal measures
-                        word variety, and typos raise word variety — so it read
-                        them as more human. My combining rule weights that
-                        signal at 0.6, so it dragged the whole score down."
+*MF02 broke (a one-character text returned a 500) — stage: the route, with signal one.* `app.py::submit` only checks that the text is non-empty after stripping, then calls `detector.model_signal`, which raises `ValueError: Text is too short to score` for a single character. Nothing catches it, so Flask returns an HTML error page, and because the crash happens before the route logs anything, it left no audit entry.
 
-     Look for a pattern. Five failures on one signal is one problem, not five. -->
+*MF06 and MF07 broke (emoji-only and right-to-left text labelled AI, combined 0.9985 and 0.9532) — stage: signal two, amplified by signal one.* `stylometry.words()` matches only `[a-z0-9']`, so these texts contain zero words. With no words, the type-token ratio and punctuation density both read as maximally AI-like, giving a style score of 1.0, and signal one also gave a high score (0.9969 and 0.9064). Because both signals leaned the same way, my disagreement rule never fired, and the average cleared the 0.9 cutoff.
 
+*EV05 broke (heavy human edit got the human label) — stage: signals one and two together.* After the editing pass the text read as less predictable to signal one (0.321) and lumpier to signal two (0.304). They agreed, so the disagreement rule gave no protection, and the combined 0.313 fell under the 0.35 human cutoff.
 
+**Pattern across the misses:** the two signals do not separate real human from AI text in my sets, which compresses scores into about 0.28–0.77 and makes the thresholds close to arbitrary (criteria 2 and 3, EV05). Separately, both signals treat "no usable words" as AI (MF06, MF07), and the route has an input gap that criterion 5 did not cover (MF02).
 
 ---
 

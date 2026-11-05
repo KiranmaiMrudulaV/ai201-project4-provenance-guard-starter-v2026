@@ -1059,6 +1059,26 @@ I am attempting all three unit 8 stretch features. This section was committed be
 2. **Per-creator limits.** My limiter is already keyed on `creator_id` (falling back to the address when there is none), because that is how the starter's key function works, so I am not claiming to have invented it. What I am adding is a setting that switches the key between creator and address, and a measurement of both, so I can say what per-creator limiting catches that per-address limiting missed and what it costs.
 3. **Three attacks on someone else's system.** Three attacks I write myself against a classmate's Provenance Guard, with their permission. This one depends on a classmate agreeing and sharing a running service, so I will say plainly in the README if I could not do it.
 
+### Stretch — the second improvement: lower the human cutoff to 0.30
+
+**What I changed:** one thing. `config.HUMAN_THRESHOLD` went from 0.35 to 0.30 (commit `7459350`), on top of the first improvement. Nothing else moved: the 5-word minimum, the AI cutoff of 0.9, the signals, the weights and the labels are as they were in the first "after" run.
+
+**Which diagnosis pointed at it:** EV05 (heavy human edit) was my one remaining broken attack. Both signals read it as human (0.321 and 0.304), they agreed, and the combined 0.313 fell just under the 0.35 cutoff, so it got the human label. My criterion 3 says "Likely human-written" starts below 0.2, so 0.35 was also the wrong end of that mismatch. I chose 0.30, not the 0.2 in my criterion, because the lowest real human piece in my test set scores 0.279 and at 0.2 the human label would be unreachable on real text.
+
+**Results** (same commands as before with `--label after2`: `results/attack_run_2026-11-04_2049_after2.md`, `results/run_2026-11-04_2053_after2.md`, `results/extra_2026-11-04_2053_after2.md`; RQ08 to RQ11 re-run alone again, all 400):
+
+| Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict (first after → second after) |
+|---|---|---|---|---|---|
+| 1. Human writing flagged as AI | 0 of 20 labelled "AI" | 0/20 | 0/20 | 0/20 | MET → MET |
+| 2. Score spread | median gap of at least 0.4 | 0.063 | 0.063 | 0.063 | MISSED → MISSED |
+| 3. Label coverage | all 3 labels, real and controlled | 2 of 3 real; 6 of 7 controlled | same | same | MISSED → MISSED |
+| 4. Appeal path | 10 of 10, unknown id gives 404 | 10/10, 404 | 10/10, 404 | 10/10, 404 | MET → MET |
+| 5. Bad input | 400, 413, and 200 at exactly 20,000 | 7/8 | 7/8 | 7/8 | MISSED → MISSED |
+
+**Attack set:** one attack changed. EV05 went from `human` to `unsure`, so **0 broke, 56 held** (first after: 1 broke; before: 4 broke). No attack now gets the human label, and only EV10 (the repeated-stanza poem) is still labelled AI.
+
+**Did it help, and how do I know:** yes, for the one thing it targeted, at a small cost. EV05 no longer gets the human label, and an AI poem (a09, combined 0.348) that used to get the human label now gets "unsure", which is also correct. The cost is that the human label became rarer: in my 20 human pieces it fell from 2 to 1 (only h16, the Eliot excerpt, scores low enough), so a real human now almost never sees "this may be human-written". It did nothing for criteria 2, 3 or 5: scores did not move, the gap is still 0.063, the AI label is still unreachable, and a score of 0.2 still returns "human" because 0.2 is under 0.30.
+
 ---
 
 ## What's Still Broken

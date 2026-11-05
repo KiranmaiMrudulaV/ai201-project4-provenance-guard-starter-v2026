@@ -149,3 +149,7 @@
 {"timestamp": "2026-11-05T01:36:47+00:00", "creator_id": "attacker_flood", "event": "rejected", "status": "rejected", "reason": "rate_limited", "limit": "3 per 1 minute"}
 {"timestamp": "2026-11-05T01:36:47+00:00", "creator_id": "attacker_flood", "event": "rejected", "status": "rejected", "reason": "rate_limited", "limit": "3 per 1 minute"}
 {"timestamp": "2026-11-05T01:36:47+00:00", "creator_id": "attacker_flood", "event": "rejected", "status": "rejected", "reason": "rate_limited", "limit": "3 per 1 minute"}
+{"timestamp": "2026-11-05T02:10:55+00:00", "creator_id": "unknown", "event": "rejected", "status": "rejected", "reason": "body_not_a_json_object"}
+{"timestamp": "2026-11-05T02:10:56+00:00", "creator_id": "unknown", "event": "rejected", "status": "rejected", "reason": "body_not_a_json_object"}
+{"timestamp": "2026-11-05T02:10:57+00:00", "creator_id": "unknown", "event": "rejected", "status": "rejected", "reason": "body_not_a_json_object"}
+{"timestamp": "2026-11-05T02:12:03+00:00", "creator_id": "unknown", "event": "rejected", "status": "rejected", "reason": "body_not_a_json_object"}
